@@ -43,23 +43,9 @@
   :group 'tools
   :group 'matching)
 
-(defcustom ag-executable
-  "ag"
+(defcustom ag-executable "ag"
   "Name of the ag executable to use."
   :type 'string
-  :group 'ag)
-
-(defcustom ag-arguments
-  (list "--smart-case" "--stats")
-  "Additional arguments passed to ag.
-
-Ag.el internally uses --column, --line-number and --color
-options (with specific colors) to match groups, so options
-specified here should not conflict.
-
---line-number is required on Windows, as otherwise ag will not
-print line numbers when the input is a stream."
-  :type '(repeat (string))
   :group 'ag)
 
 (defcustom ag-context-lines nil
@@ -71,6 +57,16 @@ print line numbers when the input is a stream."
   "Group matches in the same file together.
 
 If nil, the file name is repeated at the beginning of every match line."
+  :type 'boolean
+  :group 'ag)
+
+(defcustom ag-smart-case t
+  "Use smart-case when performing searches."
+  :type 'boolean
+  :group 'ag)
+
+(defcustom ag-search-stats t
+  "Print out stats in search result."
   :type 'boolean
   :group 'ag)
 
@@ -124,6 +120,17 @@ If set to nil, fall back to finding VCS root directories."
 (defface ag-match-face '((t :inherit match))
   "Face name to use for ag matches."
   :group 'ag)
+
+(defvar ag-arguments nil
+  "Additional arguments passed to ag.
+
+Ag.el internally uses --column, --line-number and --color
+options (with specific colors) to match groups, so options
+specified here should no contraddict them.
+
+--line-number is required on Windows, as otherwise ag will not
+print line numbers when the input is a stream.")
+
 
 (defvar ag-search-finished-hook nil
   "Hook run when ag completes a search in a buffer.")
@@ -208,32 +215,35 @@ different window, according to `ag-reuse-window'."
   "Run ag searching for the STRING given in DIRECTORY.
 If REGEXP is non-nil, treat STRING as a regular expression."
   (let ((default-directory (file-name-as-directory directory))
-        (arguments ag-arguments)
+        (arguments '("--line-number" "--column" "--color" "--color-match" "30;43"
+                     "--color-path" "1;32"))
         (shell-command-switch "-c"))
-    ;; Add double dashes at the end of command line if not specified in
-    ;; ag-arguments.
+    ;; Add custom args at the end.
+    (setq arguments (append arguments ag-arguments))
+    ;; Add double dashes at the end of command line if not already present.
     (unless (equal (car (last arguments)) "--")
-      (setq arguments (append arguments '("--"))))
-    (setq arguments
-          (append '("--line-number" "--column" "--color" "--color-match" "30;43"
-                    "--color-path" "1;32")
-                  arguments))
+      (add-to-list -arguments "--"))
+
+    (when ag-smart-case
+      (add-to-list 'arguments "--smart-case"))
+    (when ag-search-stats
+      (add-to-list 'arguments "--stats"))
     (if ag-group-matches
-        (setq arguments (cons "--group" arguments))
-      (setq arguments (cons "--nogroup" arguments)))
+        (add-to-list 'arguments "--group")
+      (add-to-list 'arguments "--nogroup"))
     (unless regexp
-      (setq arguments (cons "--literal" arguments)))
+      (add-to-list 'arguments "--literal"))
     (when (or (eq system-type 'windows-nt) (eq system-type 'cygwin))
       ;; Use --vimgrep to work around issue #97 on Windows.
-      (setq arguments (cons "--vimgrep" arguments)))
+      (add-to-list 'arguments "--vimgrep"))
     (when (char-or-string-p file-regex)
       (setq arguments (append `("--file-search-regex" ,file-regex) arguments)))
     (when file-type
-      (setq arguments (cons (format "--%s" file-type) arguments)))
+      (add-to-list 'arguments (format "--%s" file-type)))
     (if (integerp current-prefix-arg)
-        (setq arguments (cons (format "--context=%d" (abs current-prefix-arg)) arguments))
+        (add-to-list 'arguments (format "--context=%d" (abs current-prefix-arg)))
       (when ag-context-lines
-        (setq arguments (cons (format "--context=%d" ag-context-lines) arguments))))
+        (add-to-list 'arguments (format "--context=%d" ag-context-lines))))
     (when ag-ignore-list
       (setq arguments (append (ag/format-ignore ag-ignore-list) arguments)))
     (unless (file-exists-p default-directory)
