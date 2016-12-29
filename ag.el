@@ -48,6 +48,18 @@
   :type 'string
   :group 'ag)
 
+(defcustom ag-arguments nil
+  "Additional arguments passed to ag.
+
+Ag.el internally uses --column, --line-number and --color
+options (with specific colors) to match groups, so options
+specified here should not conflict.
+
+--line-number is required on Windows, as otherwise ag will not
+print line numbers when the input is a stream."
+  :type '(repeat (string))
+  :group 'ag)
+
 (defcustom ag-context-lines nil
   "Number of context lines to include before and after a matching line."
   :type 'integer
@@ -120,17 +132,6 @@ If set to nil, fall back to finding VCS root directories."
 (defface ag-match-face '((t :inherit match))
   "Face name to use for ag matches."
   :group 'ag)
-
-(defvar ag-arguments nil
-  "Additional arguments passed to ag.
-
-Ag.el internally uses --column, --line-number and --color
-options (with specific colors) to match groups, so options
-specified here should no contraddict them.
-
---line-number is required on Windows, as otherwise ag will not
-print line numbers when the input is a stream.")
-
 
 (defvar ag-search-finished-hook nil
   "Hook run when ag completes a search in a buffer.")
@@ -222,7 +223,7 @@ If REGEXP is non-nil, treat STRING as a regular expression."
     (setq arguments (append arguments ag-arguments))
     ;; Add double dashes at the end of command line if not already present.
     (unless (equal (car (last arguments)) "--")
-      (add-to-list -arguments "--"))
+      (add-to-list 'arguments "--" t))
 
     (when ag-smart-case
       (add-to-list 'arguments "--smart-case"))
